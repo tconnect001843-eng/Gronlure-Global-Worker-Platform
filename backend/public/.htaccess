@@ -1,0 +1,9 @@
+Options -Indexes
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteRule ^api/?$ api/index.php [QSA,L]
+RewriteRule ^api/(?!index\.php$)(.*)$ api/index.php?route=$1 [QSA,L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
