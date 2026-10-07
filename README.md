@@ -26,6 +26,103 @@ The built web version is served from
 `localhost` in `API_BASE_URL` with the computer's LAN IP and make sure Apache
 can be reached from the phone. Production must use HTTPS.
 
+## Public pilot deployment
+
+The GitHub repository is the source code, not a running server. The Flutter web
+client can be hosted free on GitHub Pages; the PHP API and MariaDB database
+must still be hosted separately. A free PHP/MySQL plan may sleep, have small
+storage or traffic limits, or restrict commercial use. Treat a free deployment
+as a demo with test data only: do not upload real identity documents, collect
+real payments, or promise production availability until the host and privacy
+requirements are reviewed.
+
+### Deploy the Flutter web client
+
+1. In the GitHub repository, open **Settings → Pages** and set the build and
+   deployment source to **GitHub Actions**.
+2. First provision the public HTTPS PHP API and database as described below.
+   Do not publish the client with the local `localhost` API URL.
+3. In **Settings → Secrets and variables → Actions → Variables**, add the
+   repository variable `API_BASE_URL`, set to the HTTPS API base URL, for
+   example `https://YOUR_API_HOST/api` (no trailing slash).
+4. Set the API's `CORS_ALLOWED_ORIGIN` environment variable to
+   `https://tconnect001843-eng.github.io`. It must be the website origin only:
+   no path and no trailing slash.
+5. Run **Actions → Deploy Gronlure web app → Run workflow**. The workflow
+   analyzes/tests the Flutter app, builds it with the HTTPS API URL, and
+   publishes it. The site URL is
+   `https://tconnect001843-eng.github.io/Gronlure-Global-Worker-Platform/`.
+   Later pushes to `main` automatically redeploy it.
+
+### Provision the PHP API and MariaDB
+
+Choose a PHP 8+ host that explicitly includes HTTPS, URL rewrite support,
+PDO-MySQL, `mbstring`, and outbound HTTPS requests (required if MTN payments
+are activated later). Create a MariaDB/MySQL database and a dedicated database
+user; do not use the MySQL `root` account. Keep the database credentials in the
+host's private environment-variable settings, not in GitHub or Flutter code.
+
+1. Create/import the tables from `backend/database/schema.sql` using the
+   provider's database tools.
+2. Upload the `backend` directory so the website's document root is
+   `backend/public`. This keeps `backend/.env` outside the public web folder.
+   If the host cannot set that document root, place secrets outside its public
+   directory and configure the host's PHP environment variables instead.
+3. Configure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and
+   `CORS_ALLOWED_ORIGIN` in the hosting panel. `CORS_ALLOWED_ORIGIN` must match
+   the GitHub Pages origin above. Ensure Apache rewrite rules from
+   `backend/public/.htaccess` are enabled, or configure equivalent routes in
+   the host.
+4. Visit `https://YOUR_API_HOST/api/health`; it must return
+   `{"status":"ok","database":"connected"}`. Then register a test account
+   using the hosted web app and verify sign-in, profile, and job-posting flows.
+5. A free hosting subdomain is fine for a test pilot. Use a paid plan and
+   review local privacy, retention, backup, and incident-response obligations
+   before storing real users' phone numbers or other personal information.
+
+The application currently has no MTN production credentials. Leave payment
+activation off until merchant access is approved and the provider credentials
+are set only in the PHP host's private environment configuration.
+
+### Build and install the Android app directly
+
+Direct APK installation is not the same as publishing through Google Play.
+Android release builds must use a private signing key; losing that key prevents
+updating the installed app. Never commit or send the key or its passwords.
+
+1. Install a Java JDK that includes `keytool`, then create the signing key once
+   from the project root:
+
+   ```powershell
+   keytool -genkeypair -v -keystore android\gronlure-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias gronlure
+   ```
+
+   Store a protected backup of the generated keystore. Use passwords you can
+   retain securely; do not lose them.
+2. Create `android\key.properties` locally (this file and the keystore are
+   ignored by Git) with the values you chose:
+
+   ```properties
+   storePassword=YOUR_PRIVATE_STORE_PASSWORD
+   keyPassword=YOUR_PRIVATE_KEY_PASSWORD
+   keyAlias=gronlure
+   storeFile=gronlure-release.jks
+   ```
+
+3. Build the signed APK, replacing the URL with the live HTTPS API base URL:
+
+   ```powershell
+   flutter build apk --release --dart-define=API_BASE_URL=https://YOUR_API_HOST/api
+   ```
+
+   Flutter prints the generated APK path. Transfer that APK to the phone using
+   a trusted private download link or USB, then install it. Android may ask the
+   user to allow installs from that browser/file manager. Do not share the
+   signing key when sharing the APK.
+
+The direct APK is not automatically updated when you deploy new web versions;
+build and redistribute an updated APK when the app changes.
+
 ## Sign in as an administrator
 
 1. Register an account in Gronlure using the phone number you will use as the

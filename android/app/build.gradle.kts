@@ -1,8 +1,46 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val releaseKeyProperties = Properties()
+val releaseKeyPropertiesFile = rootProject.file("key.properties")
+if (releaseKeyPropertiesFile.isFile) {
+    releaseKeyPropertiesFile.inputStream().use(releaseKeyProperties::load)
+}
+val releaseKeystoreFile = releaseKeyProperties.getProperty("storeFile")
+    ?.let(rootProject::file)
+
+val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
+    doLast {
+        check(releaseKeyPropertiesFile.isFile) {
+            "Create android/key.properties and an Android release keystore before building a release APK."
+        }
+        val requiredProperties = listOf(
+            "storePassword",
+            "keyPassword",
+            "keyAlias",
+        )
+        val missingProperties = requiredProperties.filter {
+            releaseKeyProperties.getProperty(it).isNullOrBlank()
+        }
+        check(missingProperties.isEmpty()) {
+            "Missing Android release signing properties: ${missingProperties.joinToString()}."
+        }
+        check(releaseKeystoreFile?.isFile == true) {
+            "The Android release keystore configured in android/key.properties was not found."
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name in setOf("assembleRelease", "bundleRelease")) {
+        dependsOn(verifyReleaseSigning)
+    }
 }
 
 android {
@@ -19,6 +57,15 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = releaseKeyProperties.getProperty("keyAlias")
+            keyPassword = releaseKeyProperties.getProperty("keyPassword")
+            storeFile = releaseKeystoreFile
+            storePassword = releaseKeyProperties.getProperty("storePassword")
+        }
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "ug.co.glonlure.glonlure_platform"
@@ -32,9 +79,7 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

@@ -1,16 +1,6 @@
 <?php
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
-
 function respond(int $status, array $body): void
 {
     http_response_code($status);
@@ -38,6 +28,23 @@ function load_env(): void
             $_ENV[$key] = $value;
         }
     }
+}
+
+load_env();
+$allowedOrigin = getenv('CORS_ALLOWED_ORIGIN') ?: '*';
+header('Content-Type: application/json; charset=utf-8');
+if ($allowedOrigin !== '*'
+    && !preg_match('#^https?://[A-Za-z0-9.-]+(?::[0-9]{1,5})?$#D', $allowedOrigin)) {
+    respond(500, ['error' => 'CORS_ALLOWED_ORIGIN must be a single HTTP or HTTPS origin.']);
+}
+header('Access-Control-Allow-Origin: ' . $allowedOrigin);
+header('Vary: Origin');
+header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
 }
 
 function db(): PDO
@@ -269,7 +276,6 @@ function route_path(): string
     return trim((string) $route, '/');
 }
 
-load_env();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $route = route_path();
 
