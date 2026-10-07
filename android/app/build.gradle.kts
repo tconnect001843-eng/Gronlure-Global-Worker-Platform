@@ -13,7 +13,7 @@ if (releaseKeyPropertiesFile.isFile) {
     releaseKeyPropertiesFile.inputStream().use(releaseKeyProperties::load)
 }
 val releaseKeystoreFile = releaseKeyProperties.getProperty("storeFile")
-    ?.let(rootProject::file)
+    ?.let { rootProject.file(it) }
 
 val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
     doLast {
